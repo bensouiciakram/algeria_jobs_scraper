@@ -19,22 +19,93 @@ from parsel import Selector
 from pathlib import Path 
 
 class DetailsItem(scrapy.Item):
-    pass 
+    title = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    work_place = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    expiration_date = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    applicant_level = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    section = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    number_of_available_jobs = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    contracts_type = scrapy.Field(
+        output_processor=TakeFirst()
+    ) 
+    description = scrapy.Field(
+        output_processor=TakeFirst()
+    )
+    job_url = scrapy.Field(
+        output_processor=TakeFirst()
+    )
 
 class InfosSpider(scrapy.Spider):
     name = 'extractor'  
+    config = pickle.load(open('config.pkl','rb'))
+
+    def __init__(self,keyword):
+        self.keyword = keyword 
+
+    def start_requests(self):
+        for domain in self.config:
+            search_template = self.config[domain]['search_template']
+            yield Request(
+                search_template.format(self.keyword),
+                callback=self.parse_jobs,
+                meta={
+                    'search_template':search_template,
+                    'domain':domain
+                }
+            )
+
+    def parse_jobs(self,response):
+        jobs_urls = set(response.xpath(self.config['emploitic.com']['xpaths']['job_urls']).getall())
+        for url in jobs_urls :
+            yield Request(
+                url,
+                callback=self.parse_job,
+                meta= {
+                    'domain':response.meta.get('domain')
+                }
+            )
+
+    def parse_job(self,response):
+        domain = response.meta.get('domain')
+        loader = ItemLoader(DetailsItem(),response)
+        loader.add_value('job_url',response.url)
+        loader.add_xpath('title',self.config[domain]['xpaths']['title'])
+        loader.add_xpath('work_place',self.config[domain]['xpaths']['work_place'])
+        loader.add_xpath('expiration_date',self.config[domain]['xpaths']['expiration_date'])
+        loader.add_xpath('applicant_level',self.config[domain]['xpaths']['applicant_level'])
+        loader.add_xpath('section',self.config[domain]['xpaths']['section'])
+        loader.add_xpath('number_of_available_jobs',self.config[domain]['xpaths']['number_of_available_jobs'])
+        loader.add_xpath('contracts_type',self.config[domain]['xpaths']['contracts_type'])
+        loader.add_xpath('description',self.config[domain]['xpaths']['description'])
+        yield loader.load_item()
+
+    
 
 
+keyword = input('what keyword you want to choose in your search : ').strip()
     
 process = CrawlerProcess(
     {
-        'FEED_URI':Path('.').parent.joinpath('output.csv'),
+        'FEED_URI':'output.csv',
         'FEED_FORMAT':'csv',
         'HTTPCACHE_ENABLED' : True,
+        'USER_AGENT':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
     }
 )
 
 
 
-process.crawl(InfosSpider)
+process.crawl(InfosSpider,keyword)
 process.start()
