@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright,TimeoutError 
 from parsel import Selector 
 from pathlib import Path 
+import os 
 
 class DetailsItem(scrapy.Item):
     title = scrapy.Field(
@@ -53,6 +54,10 @@ class InfosSpider(scrapy.Spider):
 
     def __init__(self,keyword):
         self.keyword = keyword 
+        try :
+            os.remove('output.csv')
+        except :
+            pass 
 
     def start_requests(self):
         for domain in self.config:
